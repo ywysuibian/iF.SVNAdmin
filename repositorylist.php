@@ -48,6 +48,40 @@ else if (check_request_var('load')) {
 	exit(0);
 }
 
+$currUserName = $appEngine->getSessionUsername();
+$currUser = new \svnadmin\core\entities\User;
+$currUser->id = $currUserName;
+$currUser->name = $currUserName;
+$isAdmin = $appEngine->getAclManager()->isUserAdmin($currUser);
+if (!$isAdmin) {
+	// Get visible repository list of non admin user
+	$visibleRepos = null;
+
+	// Get user readable access paths
+	$readablePaths = null;
+	if ($appEngine->checkUserAuthentication(false, ACL_MOD_ACCESSPATH, ACL_ACTION_VIEW)) {
+		$readablePaths = $appEngine->getAccessPathViewProvider()->getPathsOfUser($currUser);
+		foreach ($readablePaths as $accessPath) {
+			$splits = explode(':', $accessPath->getPath(), 2);
+			if (count($splits) > 1) {
+				$visibleRepos[$splits[0]] = true;
+			}
+		}
+	}
+
+	// Get user managed access paths
+	$managedPaths = null;
+	if ($appEngine->getAclManager()->isUserAccessPathManager($currUserName)) {
+		$managedPaths = $appEngine->getAclManager()->getAccessPathsOfUser($currUserName);
+		foreach ($managedPaths as $accessPath) {
+			$splits = explode(':', $accessPath->getPath(), 2);
+			if (count($splits) > 1) {
+				$visibleRepos[$splits[0]] = true;
+			}
+		}
+	}
+}
+
 //
 // View data
 //
@@ -60,7 +94,14 @@ try {
 	
 	// Repositories of all locations.
 	foreach ($repositoryParentList as $rp) {
-		$repositoryList[$rp->identifier] = $engine->getRepositoryViewProvider()->getRepositoriesOfParent($rp);
+		$allRepos = $engine->getRepositoryViewProvider()->getRepositoriesOfParent($rp);
+		$filteredRepos = array();
+		foreach ($allRepos as $repo) {
+			if ($isAdmin || isset($visibleRepos[$repo->getName()])) {
+				array_push($filteredRepos, $repo);
+			}
+		}
+		$repositoryList[$rp->identifier] = $filteredRepos;
 		usort($repositoryList[$rp->identifier], array('\svnadmin\core\entities\Repository', 'compare'));
 	}
 	

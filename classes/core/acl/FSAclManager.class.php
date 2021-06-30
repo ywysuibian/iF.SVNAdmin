@@ -80,6 +80,38 @@ namespace svnadmin\core\acl
     }
 
     /**
+     * @return bool
+     */
+    public function isAdminRole($objRole)
+    {
+      if (!$objRole)
+        return false;
+      elseif ($objRole->name == $this->administrator_role_name)
+        return true;
+      else
+        return false;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isUserAdmin($username)
+    {
+      $oUser = new \svnadmin\core\entities\User;
+      $oUser->id = $username;
+      $oUser->name = $username;
+
+      // Check user roles
+      $allRoles = $this->getRolesOfUser($oUser);
+      foreach ($allRoles as $role) {
+        if ($this->isAdminRole($role)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    /**
      * Gets all available roles.
      * @return array<IF_ACLRole>
      */
